@@ -1,0 +1,16 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+  
+    <item android:id="@+id/menu_action_scan"
+          android:icon="@drawable/ic_menu_record_disable"
+          android:title="skuska1"/>
+    
+    <item android:id="@+id/menu_action_map"
+          android:title="skuska2"/>
+    
+    <!-- Items of the more menu -->
+  	<item
+        android:id="@+id/menu_action_info"
+        android:orderInCategory="100"
+        android:title="action_info" android:visible="false" android:enabled="false"/>
+
+</menu>
