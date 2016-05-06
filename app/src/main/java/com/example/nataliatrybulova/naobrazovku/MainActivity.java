@@ -1,8 +1,11 @@
 package com.example.nataliatrybulova.naobrazovku;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
@@ -15,6 +18,8 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -60,8 +65,108 @@ public class MainActivity extends AppCompatActivity {
         inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         listview = (ListView) findViewById(R.id.listView);
         adapter = new ItemsAdapter();
+        DataStruct skuska = new DataStruct("Avatar", "1");
+        DataStruct skuska2 = new DataStruct("Avatar1_nove", "2");
+        DataStruct skuska3 = new DataStruct("Titanic2_nove", "3");
+        DataStruct skuska4 = new DataStruct("Titanic3_nove", "4");
+        items.add(skuska);
+        items.add(skuska2);
+        items.add(skuska3);
+        items.add(skuska4);
+
+        Toast.makeText(MainActivity.this, "SKUSKA !!!!!!!" , Toast.LENGTH_LONG).show();
+
         listview.setAdapter(adapter);
+        listview.setOnItemClickListener(new OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+                TextView kliknute = (TextView) view.findViewById(R.id.nazovFilmu);
+
+
+                String nazov_filmu = kliknute.getText().toString();
+                Toast.makeText(MainActivity.this, nazov_filmu , Toast.LENGTH_LONG).show();
+
+
+                //Spustit aplikaciu, ktora spusti film
+                //spusta sa nazov package + nazov aktivity
+                try {
+                    //Intent intent = new Intent("com.example.nataliatrybulova.skuska.MainActivity");
+                                    //startActivity(intent);
+
+                    /*TOTO IDE, ALE OTVORI MI TO LEN PREHLIADAC NA FILMY*/
+                    openApp(context,  "com.msi.android.mediabrowser");
+
+                    /* SNAHA O TO, ABY MI OTVORILO AJ POZADOVANY FILMY*/
+                    openApp_2(context,  "com.msi.android.mediabrowser");
+                    //Intent intent = new Intent();
+                    //intent.setComponent(new ComponentName("com.example.nataliatrybulova.skuska", "MainActivity"));
+                    //startActivity(intent);
+
+                }
+                catch(Exception e)
+                {
+                    String vypis = e.getMessage() + "************" +e.getStackTrace().toString();
+                    Toast.makeText(MainActivity.this, vypis , Toast.LENGTH_LONG).show();
+
+                }
+
+                //Intent intent = new Intent("com.msi.android.mediabrowser.AlbumGallery");
+                //intent.putExtra("LAST_GOOD_DATA", "AlbumGallery:::/sdcard/videos/movies/Avatar.mp4:::0:::movies");
+                //intent.putExtra("nazov_filmu", nazov_filmu);
+            }
+        });
     }
+
+    public boolean openApp_2(Context context, String packageName){
+
+        int position = 0;
+        String fileName = "/opt/data/videos/movies/zamena.mp4";
+        String RELOAD_VIDEOAD_PARAM = "com.msi.intent.action.reloadvideoadparam";
+        sendBroadcast(new Intent(RELOAD_VIDEOAD_PARAM));
+
+        PackageManager manager = context.getPackageManager();
+        Intent i = manager.getLaunchIntentForPackage(packageName);
+        i.addCategory(Intent.CATEGORY_LAUNCHER);
+        i.setComponent(new ComponentName("com.msi.android.mediabrowser", "com.msi.android.mediabrowser.IntroductionView"));
+
+
+        i.addFlags(268435456);
+        i.addFlags(4);
+
+        if (i == null)  {
+            Toast.makeText(context, "Vyrucilo sa to" , Toast.LENGTH_LONG).show();
+
+            return false;
+        }
+        i.putExtra("LAST_GOOD_DATA", "PlayerView:::" + fileName + ":::" + "1:::" + position + ":::0:::0:::0");
+        context.startActivity(i);
+
+        return true;
+
+
+    }
+    public static boolean openApp(Context context, String packageName) {
+        PackageManager manager = context.getPackageManager();
+        Intent i = manager.getLaunchIntentForPackage(packageName);
+
+        if (i == null)  {
+            return false;
+            //throw new PackageManager.NameNotFoundException();
+        }
+
+        //i.setAction("android.intent.action.MAIN")  ;
+        i.addCategory(Intent.CATEGORY_LAUNCHER);
+                //i.putExtra("i","nasrac") ;
+        //i.putExtra("LAST_GOOD_DATA", "AlbumGallery:::/sdcard/videos/movies/Avatar.mp4:::0:::movies");
+        i.putExtra("LAST_GOOD_DATA", "AlbumGallery:::/opt/data/videos/:::0:::movies");
+
+
+        context.startActivity(i);
+        return true;
+
+    }
+
 
     public void getData(String table, SQLiteDatabase db){
         String query = "";
@@ -120,8 +225,8 @@ public class MainActivity extends AppCompatActivity {
             if (vi == null) {
                 vi = inflater.inflate(R.layout.row, null);
                 text = (TextView) vi.findViewById(R.id.nazovFilmu);
-                //text.setText(items.get(position).getArg(0));
-                convertView.setTag(new ViewHolder(text));
+                text.setText(items.get(position).getArg(0));
+                vi.setTag(new ViewHolder(text));
             }else{
                 ViewHolder viewHolder = (ViewHolder) convertView.getTag();
                 text = viewHolder.txt1;
@@ -157,6 +262,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showLoginDialog()
     {
+        Log.d(TAG, "---- show dialog");
         LayoutInflater li = LayoutInflater.from(context);
         View prompt = li.inflate(R.layout.login_dialog, null);
         android.app.AlertDialog.Builder alertDialogBuilder = new android.app.AlertDialog.Builder(context);
@@ -170,6 +276,13 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("Login", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int id) {
+
+                        // Daco skusi spravic
+                        String password = pass.getText().toString();
+                        String username = user.getText().toString();
+                        //new RetrieveFeedTask("login", username, password).execute();
+
+                        new RetrieveFeedTask("getLevel", username, password).execute();
                     }
                 });
 
@@ -177,6 +290,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(DialogInterface dialog, int id)
             {
+                Log.d(TAG, "---- CANCEL");
                 dialog.cancel();
 
             }
@@ -188,12 +302,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // HTTP POST request
-    private HttpURLConnection sendPost(String url) throws Exception {
+    // action values: login, add, index, list, get_movie_list
+    private HttpURLConnection sendPost(String url, String action, String email, String pass) throws Exception {
 
+        Log.d(TAG, "---- sendPost: " + url + "\n   " + action + " " + email + " " + pass);
        // String url = "https://192.168.10.10";
-
-        String email = user.getText().toString();
-        String password = pass.getText().toString();
 
         URL obj = new URL(url);
         HttpURLConnection con = (HttpURLConnection) obj.openConnection();
@@ -202,24 +315,37 @@ public class MainActivity extends AppCompatActivity {
         con.setRequestMethod("POST");
         con.setRequestProperty("User-Agent", "My header");
         con.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
+        con.setRequestProperty("Content-type", "application/json");
+        con.setRequestProperty("Accept", "application/json");
 
         con.setDoInput(true);
         con.setDoOutput(true);
 
 
         /**************** CUSTOMER ******************/
-        JSONObject customer = new JSONObject();
+        JSONObject json = new JSONObject();
 
-        customer.put("email", email);
-        customer.put("password", password);
+        // Action is used by proxy to select REST API url to forward
+        // values: login, add, index, list, get_movie_list
+        json.put("action", action);
+
+        json.put("email", email);
+
+        if (pass != null && !pass.isEmpty())
+            json.put("password", pass);
+
+        // Action is used by proxy to select REST API url to forward
+        // values: login, add, index, list, get_movie_list
+        //json.put("action", "login");
+
 
         /**************** CUSTOMER ******************/
 
         // Send post request
-        con.setDoOutput(true);
+        //con.setDoOutput(true);
         // Send post request
         DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-        wr.write(customer.toString().getBytes("UTF-8"));
+        wr.write(json.toString().getBytes("UTF-8"));
         wr.flush();
         wr.close();
 
@@ -233,13 +359,26 @@ public class MainActivity extends AppCompatActivity {
     class RetrieveFeedTask extends AsyncTask<String, Void, String> {
 
         private Exception exception;
+        private String email;
+        private String password;
+        private String action;
 
+        RetrieveFeedTask(String action, String email, String pass) {
+            this.action = action;
+            this.email = email;
+            this.password = pass;
+        }
         protected String doInBackground(String... urls) {
             try {
 
                 //Ak get = 0, ak post = 1
-                HttpURLConnection urlConnection = sendPost("https://10.0.0.1/customers/");
+                //HttpURLConnection urlConnection = sendPost("https://10.0.0.1/customers/");
+                //HttpURLConnection urlConnection = sendPost("http://192.168.9.101/customers/login");
+                HttpURLConnection urlConnection = sendPost("http://192.168.9.104/other/proxy_torta.php", action, email, password);
+
+
                 //InputStream in = urlConnection.getInputStream();
+
                 BufferedReader in = new BufferedReader(
                         new InputStreamReader(urlConnection.getInputStream()));
                 String inputLine;
@@ -252,7 +391,7 @@ public class MainActivity extends AppCompatActivity {
                 in.close();
 
                 //print result
-                Log.d(TAG, response.toString());
+                Log.d(TAG, "--response: " + response.toString());
                 //sendPost();
 
             } catch (Exception e) {
@@ -306,7 +445,8 @@ public class MainActivity extends AppCompatActivity {
             {
                 // password=MCrypt3DES.computeSHA1Hash(password); //password is hashed SHA1
                 //TODO here any local checks if password or user is valid
-                new RetrieveFeedTask().execute();
+
+                //new RetrieveFeedTask("login", username, password).execute();
 
                 //this will do the actual check with my back-end server for valid user/pass and callback with the response
                 //new CheckLoginAsync(MainActivity.this,username,password).execute("","");
@@ -353,6 +493,7 @@ public class MainActivity extends AppCompatActivity {
 
             urlConnection.setRequestMethod("POST");
             urlConnection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            urlConnection.setRequestProperty("Accept", "application/json; charset=UTF-8");
             urlConnection.setDoInput(true);
             // Send post request Specifies whether this URLConnection allows sending data.
             urlConnection.setDoOutput(true);
