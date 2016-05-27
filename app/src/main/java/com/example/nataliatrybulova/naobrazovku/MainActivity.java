@@ -1,11 +1,11 @@
 package com.example.nataliatrybulova.naobrazovku;
 
-import android.annotation.SuppressLint;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
@@ -26,6 +26,8 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -34,29 +36,29 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManagerFactory;
 
-
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity{
     private static final String TAG = "MainActivity";
+
 
     ListView listview;
     private static ItemsAdapter adapter;
     LayoutInflater inflater = null;
     private static List<DataStruct> items = new ArrayList<DataStruct>();
+    public List<String> movies = new ArrayList<String>();
+
     final Context context = this;
     JSONObject customer;
     EditText user;
     EditText pass;
+    public JSONObject jsonObj = null;
 
+    private boolean method2Executed = false;
+
+    Customer cust;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,26 +67,73 @@ public class MainActivity extends AppCompatActivity {
         inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         listview = (ListView) findViewById(R.id.listView);
         adapter = new ItemsAdapter();
-        DataStruct skuska = new DataStruct("Avatar", "1");
-        DataStruct skuska2 = new DataStruct("Avatar1_nove", "2");
-        DataStruct skuska3 = new DataStruct("Titanic2_nove", "3");
-        DataStruct skuska4 = new DataStruct("Titanic3_nove", "4");
-        items.add(skuska);
-        items.add(skuska2);
-        items.add(skuska3);
-        items.add(skuska4);
-
-        Toast.makeText(MainActivity.this, "SKUSKA !!!!!!!" , Toast.LENGTH_LONG).show();
-
         listview.setAdapter(adapter);
+        int screenSize = getResources().getConfiguration().screenLayout &
+                Configuration.SCREENLAYOUT_SIZE_MASK;
+
+        String toastMsg;
+        switch(screenSize) {
+            case Configuration.SCREENLAYOUT_SIZE_LARGE:
+                toastMsg = "Large screen";
+                break;
+            case Configuration.SCREENLAYOUT_SIZE_NORMAL:
+                toastMsg = "Normal screen";
+                break;
+            case Configuration.SCREENLAYOUT_SIZE_SMALL:
+                toastMsg = "Small screen";
+                break;
+            default:
+                toastMsg = "Screen size is neither large, normal or small";
+        }
+        Toast.makeText(MainActivity.this, toastMsg, Toast.LENGTH_LONG).show();
+
+        /* 888 888 */cust = new Customer();
+
+        /* ************************************************** */
+        if(items.size() == 0 && method2Executed == false)
+            new RetrieveFeedTask("get_movie_list").execute();
+
+        /* ************************************************** */
+
+
         listview.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 
                 TextView kliknute = (TextView) view.findViewById(R.id.nazovFilmu);
-
-
                 String nazov_filmu = kliknute.getText().toString();
+                int body_za_film = 0;
+
+                //Ak nema dostatok bodov !!!!
+
+                for (int i = 0; i < items.size(); i++) {
+                    if(items.get(i).getArg(0).equals(nazov_filmu) ) {
+                        body_za_film = items.get(i).getPoints();
+                        Toast.makeText(MainActivity.this, "Potrebnych: "+ body_za_film, Toast.LENGTH_LONG).show();
+
+
+                        if (body_za_film > cust.getPoints()) {
+                            Toast.makeText(MainActivity.this, "Nemas dostatok bodov", Toast.LENGTH_LONG).show();
+                            return;
+
+                        }
+                        else if (items.get(i).getArg(1).equals("true")) {
+                            Toast.makeText(MainActivity.this, "Mas dostatok bodov", Toast.LENGTH_LONG).show();
+                            Log.d("MAM DOSTATOK BODOV", "cust.getEmail: " + cust.getEmail());
+                            if(cust.getEmail().equals("default"))
+                            {
+                                Toast.makeText(MainActivity.this, "Zle sa nacital email", Toast.LENGTH_LONG).show();
+                                return;
+
+                            }
+                            new RetrieveFeedTask("update", cust.getEmail(), body_za_film).execute();
+                        }
+
+
+
+                    }
+                }
+
                 Toast.makeText(MainActivity.this, nazov_filmu , Toast.LENGTH_LONG).show();
 
 
@@ -234,6 +283,20 @@ public class MainActivity extends AppCompatActivity {
 
             text.setText(items.get(position).getArg(0));
 
+            if(items.get(position).getArg(1).equals("false"))
+            {
+                text.setEnabled(false);
+                Log.d(TAG, "FALSE");
+
+
+            }
+            else{
+                text.setEnabled(true);
+
+                Log.d(TAG, "TRUE");
+
+            }
+
             return vi;
         }
     }
@@ -282,7 +345,7 @@ public class MainActivity extends AppCompatActivity {
                         String username = user.getText().toString();
                         //new RetrieveFeedTask("login", username, password).execute();
 
-                        new RetrieveFeedTask("getLevel", username, password).execute();
+                        new RetrieveFeedTask("get_movie_list", username, password).execute();
                     }
                 });
 
@@ -303,9 +366,9 @@ public class MainActivity extends AppCompatActivity {
 
     // HTTP POST request
     // action values: login, add, index, list, get_movie_list
-    private HttpURLConnection sendPost(String url, String action, String email, String pass) throws Exception {
+    private HttpURLConnection sendPost(String url, String action, String email, String pass, String points) throws Exception {
 
-        Log.d(TAG, "---- sendPost: " + url + "\n   " + action + " " + email + " " + pass);
+        Log.d(TAG, "---- sendPost: " + url + "\n   " + action + " " + email + " " + pass + points);
        // String url = "https://192.168.10.10";
 
         URL obj = new URL(url);
@@ -329,10 +392,14 @@ public class MainActivity extends AppCompatActivity {
         // values: login, add, index, list, get_movie_list
         json.put("action", action);
 
+        if (email != null && !email.isEmpty())
         json.put("email", email);
 
         if (pass != null && !pass.isEmpty())
             json.put("password", pass);
+
+        if (points != null && !points.isEmpty())
+            json.put("movie_points", points);
 
         // Action is used by proxy to select REST API url to forward
         // values: login, add, index, list, get_movie_list
@@ -356,25 +423,52 @@ public class MainActivity extends AppCompatActivity {
         return con;
     }
 
-    class RetrieveFeedTask extends AsyncTask<String, Void, String> {
+
+    class RetrieveFeedTask extends AsyncTask<String, Void, JSONObject> {
 
         private Exception exception;
         private String email;
         private String password;
         private String action;
+        private int points = 0;
+
 
         RetrieveFeedTask(String action, String email, String pass) {
             this.action = action;
             this.email = email;
             this.password = pass;
         }
-        protected String doInBackground(String... urls) {
+        RetrieveFeedTask(String action) {
+            this.action = action;
+            this.email = null;
+            this.password = null;
+        }
+        RetrieveFeedTask(String action, String email, Integer points) {
+            this.action = action;
+            this.email = email;
+            this.points = points;
+            this.password = null;
+
+        }
+        RetrieveFeedTask(String action, String email) {
+            this.action = action;
+            this.email = email;
+            this.password = null;
+        }
+
+        protected JSONObject doInBackground(String... urls) {
+            JSONObject json = null;
+            String points_argument = "0";
             try {
 
                 //Ak get = 0, ak post = 1
                 //HttpURLConnection urlConnection = sendPost("https://10.0.0.1/customers/");
                 //HttpURLConnection urlConnection = sendPost("http://192.168.9.101/customers/login");
-                HttpURLConnection urlConnection = sendPost("http://192.168.9.104/other/proxy_torta.php", action, email, password);
+                if(points != 0)
+                {
+                    points_argument = Integer.toString(points);
+                }
+                HttpURLConnection urlConnection = sendPost("http://10.0.0.1/proxy_torta.php", action, email, password, points_argument);
 
 
                 //InputStream in = urlConnection.getInputStream();
@@ -382,8 +476,8 @@ public class MainActivity extends AppCompatActivity {
                 BufferedReader in = new BufferedReader(
                         new InputStreamReader(urlConnection.getInputStream()));
                 String inputLine;
-                StringBuffer response = new StringBuffer();
 
+                StringBuffer response = new StringBuffer();
 
                 while ((inputLine = in.readLine()) != null) {
                     response.append(inputLine);
@@ -392,18 +486,91 @@ public class MainActivity extends AppCompatActivity {
 
                 //print result
                 Log.d(TAG, "--response: " + response.toString());
+                json = new JSONObject(response.toString());
+
+
                 //sendPost();
 
             } catch (Exception e) {
                 this.exception = e;
             }
 
-            return "Executed";
+
+            return json;
         }
 
-        protected void onPostExecute(String feed) {
-            // TODO: check this.exception
-            // TODO: do something with the feed
+        protected void onPostExecute(JSONObject feed) {
+
+            if (items != null)
+                items.clear();
+
+            JSONArray arr = null;
+            int points = 0;
+            int level_id = 0;
+            String email = "default";
+            String updated = "default";
+            Log.d(TAG, feed.toString());
+            Log.d(TAG, updated);
+
+
+            try {
+                updated = feed.getString("action");
+                if (updated == null && updated.isEmpty()) {
+                    Log.d(TAG, "Prazdny action  ");
+                    updated = "default";
+
+                }
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            Log.d(TAG, "Pred ifom:" +updated);
+
+            if (updated.equals("default"))
+            {
+
+                try {
+                    arr = feed.getJSONArray("movie_list");
+                    String level_idd = feed.getString("level_id");
+                    JSONObject j = feed.getJSONObject("cust");
+                    String p = j.getString("total_points");
+                    points = Integer.parseInt(p);
+                    level_id = Integer.parseInt(level_idd);
+                    email = j.getString("email");
+                    cust = new Customer(level_id, points, email);
+                    Log.d("Customer je: ", level_id + "///" + cust);
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+
+            for (int i = 0; i < arr.length(); i++) {
+                try {
+                    String movie = arr.getJSONObject(i).getString("name");
+                    String enabled = arr.getJSONObject(i).getString("enabled");
+                    int points_movie = Integer.parseInt(arr.getJSONObject(i).getString("points"));
+                    Log.d(TAG, "Toto je enabled:  " + enabled);
+
+                    String bo = "false";
+                    if (enabled.equals("true")) {
+                        bo = "true";
+                    }
+                    Log.d(TAG, "Toto je bo:  " + bo);
+
+                    DataStruct skuska = new DataStruct(movie, bo, points_movie);
+
+                    items.add(skuska);
+
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+            method2Executed = true;
+            adapter.notifyDataSetChanged();
+        }
+
         }
     }
 
@@ -429,96 +596,6 @@ public class MainActivity extends AppCompatActivity {
 
         return valid;
     }
-
-    public boolean validate2()
-    {
-        String password = pass.getText().toString();
-        String username = user.getText().toString();
-        try
-        {
-            if ( username.length()<2 || password.length()<2)
-            {
-                Toast.makeText(MainActivity.this,"Invalid username or password", Toast.LENGTH_LONG).show();
-                showLoginDialog();
-            }
-            else
-            {
-                // password=MCrypt3DES.computeSHA1Hash(password); //password is hashed SHA1
-                //TODO here any local checks if password or user is valid
-
-                //new RetrieveFeedTask("login", username, password).execute();
-
-                //this will do the actual check with my back-end server for valid user/pass and callback with the response
-                //new CheckLoginAsync(MainActivity.this,username,password).execute("","");
-            }
-        }catch(Exception e)
-        {
-            Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-
-        return true;
-    }
-
-    @SuppressLint("SdCardPath")
-    public static HttpsURLConnection httpsPost(String urlString, KeyStore keyStore, JSONObject customer)
-    {
-        try
-        {
-            // Create a TrustManager that trusts the CAs in our KeyStore
-            String tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm();
-            TrustManagerFactory tmf = TrustManagerFactory.getInstance(tmfAlgorithm);
-            tmf.init(keyStore);
-
-            // Vytvori spojenie ale este sa nepripoji (aj ked tam je openConnection)
-            URL url = new URL(urlString);
-            HttpsURLConnection urlConnection = (HttpsURLConnection)url.openConnection();  // does not establish the actual connection
-
-            // Create an SSLContext that uses our TrustManager
-            SSLContext context = SSLContext.getInstance("TLS");
-            context.init(null, tmf.getTrustManagers(), null);
-
-            //HttpsURLConnection.setDefaultSSLSocketFactory(NoSSLv3Factory);
-
-            // Tu to nastavujeme len pre toto spojenie - to co je zakomentovane vyssie to nastavuje globalne (asi pre vsetky buduce spojenia)
-            //   t.j. nastavuje sa triede HttpsURLConnection a nie na premennej urlConnection ako nizsie
-            // Toto mohol byt problem - mozno to funguje tak ze to globalne nastavenie to zmeni len pre buduce spojenia
-            urlConnection.setSSLSocketFactory(context.getSocketFactory());
-
-            // Ignoruje hostname v certifikate
-            urlConnection.setHostnameVerifier(new HostnameVerifier() {
-                public boolean verify(String hostname, SSLSession session) {
-                    return true;
-                }
-            });
-
-            urlConnection.setRequestMethod("POST");
-            urlConnection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-            urlConnection.setRequestProperty("Accept", "application/json; charset=UTF-8");
-            urlConnection.setDoInput(true);
-            // Send post request Specifies whether this URLConnection allows sending data.
-            urlConnection.setDoOutput(true);
-            // Send post request
-            DataOutputStream wr = new DataOutputStream(urlConnection.getOutputStream());
-            wr.write(customer.toString().getBytes("UTF-8"));
-            wr.flush();
-            wr.close();
-
-            // Teraz vytvorime skustocne spojenie cez siet
-            // - az na zaver -  ked sme vsetko nastavili zapisali co chceme odoslat
-            urlConnection.connect();
-
-            return urlConnection;
-        }
-        catch (Exception ex)
-        {
-            ex.printStackTrace();
-            //Log.e(TAG, "Failed to establish SSL connection to server: " + ex.toString());
-            return null;
-        }
-
-
-    }
-
 }
 
 

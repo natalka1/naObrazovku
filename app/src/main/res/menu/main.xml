@@ -6,6 +6,9 @@
     
     <item android:id="@+id/menu_action_map"
           android:title="skuska2"/>
+
+    <item android:id="@+id/courses"
+          android:title="boseeeeeee" android:showAsAction="ifRoom"/>
     
     <!-- Items of the more menu -->
   	<item
@@ -14,3 +17,4 @@
         android:title="action_info" android:visible="false" android:enabled="false"/>
 
 </menu>
+

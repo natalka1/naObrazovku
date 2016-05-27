@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">NaObrazovku</string>
+    <string name="app_name">MOD Client</string>
+    <string name="title_activity_https_post">HttpsPost</string>
 </resources>
